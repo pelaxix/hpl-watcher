@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .env
 .taste-skill/inspect/
+
+state.json
+state.tmp
+watcher.log
+debug-*.txt
