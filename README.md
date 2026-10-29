@@ -16,33 +16,30 @@ Open http://127.0.0.1:31008. Before the first watcher publication the page says 
 
 ## Connect the existing scheduled watcher
 
-The original watcher script has not yet been supplied to this repository. Keep that job and its existing unavailable→available email logic, five-minute schedule, first-scan baseline and saved state. This repo does **not** install a replacement scraper or modify email delivery.
+`watcher.py` is the existing supplied Playwright/Brevo watcher, now publishing per-branch copy counts to the frontend after each successful scrape. It preserves branch-level alerts and the existing `state.json` layout. Snapshot failures do not block alerts; scrape failures keep previous frontend results and mark them unconfirmed.
 
-Copy `snapshot.py` beside the existing `watcher.py`, then import it:
+### Update an existing watcher without changing its scheduled task
 
-```python
-from snapshot import record_result
+After `git pull`, copy `watcher.py` and `snapshot.py` from this repo into the folder containing your existing watcher. Back up the old script first. **Keep `state.json` in its existing location** so the notification baseline is preserved. Do not reset the baseline during this update.
+
+Both processes must use the same snapshot folder. In the PowerShell window running the frontend:
+
+```powershell
+$env:HPL_DATA_DIR = 'D:\DevData\HPLWatcher'
+python server.py
 ```
 
-After a **complete successful** scan of each title, pass only the `Rec Pass Express` branches and their actual available-copy counts:
+Set the same value as a machine environment variable in an Administrator PowerShell so the scheduled watcher can use it:
 
-```python
-# Variables below must come from the existing scraper, not the title-level total.
-record_result("hca", hca_express_branches)
-record_result("rom", rom_express_branches)
-# Each is a list of {"name": branch_name, "available": available_count}.
-# A verified successful scan with none available is [].
+```powershell
+[Environment]::SetEnvironmentVariable('HPL_DATA_DIR', 'D:\DevData\HPLWatcher', 'Machine')
 ```
 
-Call sequentially from one watcher job. The snapshot helper atomically replaces `availability.json`, preserving the other title. Do not run concurrent publishers. If an empty result means the scrape failed or a selector changed, publish an error instead of an empty successful scan:
+When invoking the watcher manually, also set `$env:HPL_DATA_DIR` in that window. A successful `python watcher.py` writes the snapshot as well as performing the existing alert checks. It may send an email when a branch has become available since the saved baseline. The frontend's Refresh results button only reads snapshots.
 
-```python
-record_result("rom", error="Catalogue check failed")
-```
+The existing watcher Python environment must still have Playwright/Chromium and its `BREVO_API_KEY`. No new watcher task is installed. If Task Scheduler retains an older environment, explicitly set `HPL_DATA_DIR` in its existing launcher before starting Python. Ensure the watcher account can write the shared folder.
 
-Errors preserve the last successful results and timestamp. The UI marks them as previous results, excludes them from Available now, and links to the catalogue. Results older than 11 minutes are also stale. Both watcher and frontend must use the **same** `HPL_DATA_DIR` (recommended `D:\DevData\HPLWatcher`). This snapshot is separate from the watcher's notification baseline.
-
-A CLI is also available for non-Python watchers: `python snapshot.py rom --branches-json <JSON-array>` or `python snapshot.py rom --error "Catalogue check failed"`. Never publish a success until the availability-by-location table was parsed completely and filtered to Rec Pass Express.
+The helper atomically replaces `availability.json` and preserves the other pass. Call it from only one watcher job at a time. Results older than 11 minutes and failed checks are excluded from Available now. The snapshot is separate from the notification baseline. Catalogue parsing refuses missing sections and partially parsed Express rows instead of publishing those as zero availability.
 
 ## Windows startup and Caddy
 
