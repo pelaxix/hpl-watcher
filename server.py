@@ -10,8 +10,8 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get('HPL_DATA_DIR', str(ROOT / 'data')))
 PASSES = [
-    {'id': 'hca', 'name': 'Hamilton Conservation Authority', 'shortName': 'HCA', 'description': 'Conservation area pass', 'catalogueUrl': 'https://hpl.bibliocommons.com/item/show/S125C722592'},
-    {'id': 'rom', 'name': 'Royal Ontario Museum', 'shortName': 'ROM', 'description': 'Museum pass', 'catalogueUrl': 'https://hpl.bibliocommons.com/item/show/S125C878844'},
+    {'id': 'hca', 'name': 'Hamilton Conservation Authority', 'shortName': 'HCA', 'description': 'Conservation area pass', 'catalogueUrl': 'https://hpl.bibliocommons.com/v2/record/S125C722592'},
+    {'id': 'rom', 'name': 'Royal Ontario Museum', 'shortName': 'ROM', 'description': 'Museum pass', 'catalogueUrl': 'https://hpl.bibliocommons.com/v2/record/S125C878844'},
 ]
 
 def status():
