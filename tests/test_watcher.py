@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock
 
-source = ast.parse((Path(__file__).resolve().parents[1] / 'watcher.py').read_text())
+source = ast.parse((Path(__file__).resolve().parents[1] / 'hpl.py').read_text())
 functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ('normalize_lines', 'scrape_express_available')]
 
 class WatcherParserTests(unittest.TestCase):
