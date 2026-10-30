@@ -103,7 +103,7 @@ def scrape_express_available(page, item):
         raise RuntimeError("Some available Express holdings could not be parsed")
     if int(re.search(r"\d+", available_match.group()).group()) > 0 and not normalize_lines(available_text):
         raise RuntimeError("Available holdings have not populated")
-    return [{"name": name, "available": count, **({"shelving": shelving[name]} if shelving[name] else {})}
+    return [{"name": name, "available": count - shelving[name], **({"shelving": shelving[name]} if shelving[name] else {})}
             for name, count in sorted(branches.items())]
 
 # Catalogue discovery is independent of the short availability cache.
