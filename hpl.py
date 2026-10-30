@@ -70,12 +70,13 @@ def scrape_express_available(page, item):
     #
     # so Call No. and Status can be on the SAME line, separated by tabs.
     branches = Counter()
+    shelving = Counter()
 
     pattern = re.compile(
         r"(?:^|\n)"
         r"\s*([^\n\t]+?)\s*\t?\s*\n"
         r"\s*Rec Pass Express\s*\n"
-        r"\s*\t?[^\n\t]+\t+Available\s*(?=\n|$)",
+        r"\s*\t?[^\n\t]+\t+(Available|Shelving)\s*(?=\n|$)",
         flags=re.IGNORECASE,
     )
 
@@ -85,6 +86,8 @@ def scrape_express_available(page, item):
             "location", "collection", "call no.", "call no", "status", "available"
         }:
             branches[branch] += 1
+            if match.group(2).casefold() == "shelving":
+                shelving[branch] += 1
 
     # Every Express row in the available section must have parsed successfully.
     express_rows = sum(line.casefold() == TARGET_COLLECTION.casefold()
@@ -93,7 +96,8 @@ def scrape_express_available(page, item):
         raise RuntimeError("Some available Express holdings could not be parsed")
     if int(re.search(r"\d+", available_match.group()).group()) > 0 and not normalize_lines(available_text):
         raise RuntimeError("Available holdings have not populated")
-    return [{"name": name, "available": count} for name, count in sorted(branches.items())]
+    return [{"name": name, "available": count, **({"shelving": shelving[name]} if shelving[name] else {})}
+            for name, count in sorted(branches.items())]
 
 def check_passes(definitions, publish):
     with sync_playwright() as playwright:
