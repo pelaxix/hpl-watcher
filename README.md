@@ -1,6 +1,6 @@
 # HPL Watcher frontend
 
-Independent, on-demand Hamilton Public Library Rec Pass Express lookup for Hamilton Conservation Authority and Royal Ontario Museum passes. Checks HPL directly when the page opens or **Check availability** is pressed. No scheduled tracker, snapshot file, email credentials or notification baseline is required.
+Independent, on-demand Hamilton Public Library Rec Pass Express lookup for all pass titles with Rec Pass Express holdings. Checks HPL directly when the page opens or **Check availability** is pressed. No scheduled tracker, snapshot file, email credentials or notification baseline is required.
 
 ## Update and run on Windows
 
@@ -18,7 +18,7 @@ Open http://127.0.0.1:31008. Leave the existing scheduled email tracker running 
 
 ## How checks work
 
-A single background check loads the HPL availability-by-location overlay for both titles using Playwright. Only the exact Rec Pass Express collection is included. Actual available holding rows are counted per branch. Missing sections and partially parsed Express rows fail rather than being published as zero.
+A single background check discovers pass-format catalogue records (following search pagination), then loads each availability-by-location overlay using Playwright. The candidate catalogue is cached for 24 hours. Titles with no Express holdings are excluded after a successful check; failed titles remain visible as unconfirmed. Newly checked results appear progressively with a title counter. Discovery failure is reported explicitly; the site does not claim complete coverage when discovery fails. Only the exact Rec Pass Express collection is included. Actual available holding rows are counted per branch. Missing sections and partially parsed Express rows fail rather than being published as zero.
 
 The page polls progress while the server checks. Concurrent visitors share the in-flight check, and completed checks have a 30-second shared cache, including failed checks. Requests within that window reuse the result and retain its actual check time. Opening another tab or repeatedly clicking does not launch more browsers. Checks may take a minute or two; nothing blocks the web server's normal responses.
 
