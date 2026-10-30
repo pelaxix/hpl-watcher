@@ -25,11 +25,11 @@ class WatcherParserTests(unittest.TestCase):
 
     def test_saltfleet_shelving_from_actual_hpl_output(self):
         rows = "Availability details\nHamilton Conservation Authority Pass\nPass\nAvailable (1)\nLocation\n\t\nCollection\n\t\nCall No.\n\t\nStatus\n\nSaltfleet\t\nRec Pass Express\n\tPASS HAM\tShelving\nNot available at this time (81)\nCentral\t\nRec Pass Express\n\tPASS HAM\tChecked Out"
-        self.assertEqual(self.scrape(rows), [{'name':'Saltfleet','available':1,'shelving':1}])
+        self.assertEqual(self.scrape(rows), [{'name':'Saltfleet','available':0,'shelving':1}])
 
     def test_mixed_statuses_at_one_branch(self):
         rows = "Availability details\nAvailable (2)\nBarton\t\nRec Pass Express\n\tPASS ROM\tAvailable\nBarton\t\nRec Pass Express\n\tPASS ROM\tShelving"
-        self.assertEqual(self.scrape(rows), [{'name':'Barton','available':2,'shelving':1}])
+        self.assertEqual(self.scrape(rows), [{'name':'Barton','available':1,'shelving':1}])
 
     def test_catalogue_deduplicates_records_and_ignores_actions(self):
         namespace={'re':re}
