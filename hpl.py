@@ -1,5 +1,7 @@
 """Direct HPL lookups only: no notification state or email dependencies."""
 import re
+import time
+from urllib.parse import urljoin, urlsplit
 from collections import Counter
 from playwright.sync_api import sync_playwright
 
@@ -44,6 +46,8 @@ def scrape_express_available(page, item):
         overlay_text = body_text[overlay_pos:]
     else:
         raise RuntimeError("Availability overlay heading was not found")
+
+    item["has_express"] = any(line.casefold() == TARGET_COLLECTION.casefold() for line in normalize_lines(overlay_text))
 
     # Only inspect the "Available (...)" section. Anything below
     # "Not available at this time" is irrelevant to alerts.
@@ -99,17 +103,76 @@ def scrape_express_available(page, item):
     return [{"name": name, "available": count, **({"shelving": shelving[name]} if shelving[name] else {})}
             for name, count in sorted(branches.items())]
 
-def check_passes(definitions, publish):
+# Catalogue discovery is independent of the short availability cache.
+_catalogue = None
+_catalogue_at = 0
+SEARCH_URL = "https://hpl.bibliocommons.com/v2/search?query=pass&searchType=title&f_FORMAT=PASS"
+
+
+def catalogue_records(links):
+    records = {}
+    for link in links:
+        match = re.search(r"/v2/record/(S125C[0-9]+)", link.get("href", ""))
+        name = " ".join(link.get("text", "").split())
+        if not match or not name or "pass" not in name.casefold():
+            continue
+        # Ignore accessibility action links and duplicated shelf controls.
+        if name.casefold().startswith(("add ", "place ", "view ", "go to ")):
+            continue
+        record_id = match.group(1)
+        if record_id not in records or len(name) > len(records[record_id]["name"]):
+            records[record_id] = {"id": record_id, "name": name, "shortName": name,
+                                  "description": "Recreation pass", "catalogueUrl": f"https://hpl.bibliocommons.com/v2/record/{record_id}"}
+    return list(records.values())
+
+
+def discover_passes(page):
+    global _catalogue, _catalogue_at
+    if _catalogue is not None and time.monotonic() - _catalogue_at < 86400:
+        return [dict(item) for item in _catalogue]
+    found, visited = {}, set()
+    url = SEARCH_URL
+    for _ in range(25):
+        if url in visited:
+            raise RuntimeError("Catalogue pagination repeated a page")
+        visited.add(url)
+        page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        page.locator('a[href*="/v2/record/"]').first.wait_for(state="visible", timeout=30000)
+        links = page.locator('a[href*="/v2/record/"]').evaluate_all("els => els.map(a => ({href:a.getAttribute('href'),text:a.innerText}))")
+        records = catalogue_records(links)
+        if not records:
+            raise RuntimeError("No pass records found in catalogue search")
+        found.update({item['id']: item for item in records})
+        next_links = page.locator('a').evaluate_all("els => els.filter(a => a.rel === 'next' || /^(next|next page)$/i.test((a.getAttribute('aria-label') || a.innerText || '').trim())).map(a => a.getAttribute('href')).filter(Boolean)")
+        if not next_links:
+            break
+        url = urljoin(url, next_links[0])
+        if urlsplit(url).netloc != 'hpl.bibliocommons.com':
+            raise RuntimeError("Unexpected catalogue pagination destination")
+    else:
+        raise RuntimeError("Catalogue search exceeded pagination limit")
+    _catalogue = sorted(found.values(), key=lambda item: item['name'])
+    _catalogue_at = time.monotonic()
+    return [dict(item) for item in _catalogue]
+
+
+def check_passes(definitions, publish, register=None):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
             context = browser.new_context(viewport={"width": 1400, "height": 1000}, locale="en-CA")
             page = context.new_page()
+            if register is not None:
+                definitions = discover_passes(page)
+                register(definitions)
             for definition in definitions:
                 item = {"id": definition["id"], "short_name": definition["shortName"], "url": definition["catalogueUrl"]}
                 try:
                     branches = scrape_express_available(page, item)
-                    publish(item["id"], branches, None)
+                    if register is not None and not item.get("has_express"):
+                        publish(item["id"], [], None, eligible=False)
+                    else:
+                        publish(item["id"], branches, None)
                 except Exception as exc:
                     log(f"HPL lookup failed for {item['id']}: {type(exc).__name__}: {exc}")
                     publish(item["id"], None, "Could not check HPL. Try again or use the catalogue.")
