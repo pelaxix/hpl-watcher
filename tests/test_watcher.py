@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import MagicMock
 
 source = ast.parse((Path(__file__).resolve().parents[1] / 'hpl.py').read_text())
-functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ('normalize_lines', 'scrape_express_available')]
+functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ('normalize_lines', 'scrape_express_available', 'catalogue_records')]
 
 class WatcherParserTests(unittest.TestCase):
     def scrape(self, text):
@@ -30,6 +30,17 @@ class WatcherParserTests(unittest.TestCase):
     def test_mixed_statuses_at_one_branch(self):
         rows = "Availability details\nAvailable (2)\nBarton\t\nRec Pass Express\n\tPASS ROM\tAvailable\nBarton\t\nRec Pass Express\n\tPASS ROM\tShelving"
         self.assertEqual(self.scrape(rows), [{'name':'Barton','available':2,'shelving':1}])
+
+    def test_catalogue_deduplicates_records_and_ignores_actions(self):
+        namespace={'re':re}
+        exec(compile(ast.Module(body=functions,type_ignores=[]),'hpl.py','exec'),namespace)
+        links=[{'href':'/v2/record/S125C123','text':'Ontario Parks Pass'},
+               {'href':'/v2/record/S125C123','text':'Add Ontario Parks Pass to shelf'},
+               {'href':'/v2/record/S125C123','text':'Ontario Parks Pass'},
+               {'href':'/v2/record/S125C456','text':'Art Gallery of Hamilton Pass'}]
+        result=namespace['catalogue_records'](links)
+        self.assertEqual(len(result),2)
+        self.assertEqual(result[0]['name'],'Ontario Parks Pass')
 
     def test_confirmed_zero(self):
         self.assertEqual(self.scrape('Availability details\nAvailable (0)\nNot available at this time (8)'),[])
