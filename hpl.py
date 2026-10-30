@@ -55,6 +55,9 @@ def scrape_express_available(page, item):
     if available_match:
         available_text = overlay_text[available_match.end():]
     else:
+        # HPL omits the Available section entirely when all holdings are in use.
+        if re.search(r"Not available at this time\s*\(\d+\)", overlay_text, re.IGNORECASE):
+            return []
         raise RuntimeError("Available holdings section was not found; refusing to publish an empty result")
 
     unavailable_marker = re.search(
