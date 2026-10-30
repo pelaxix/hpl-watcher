@@ -9,19 +9,21 @@ function render() {
   const passes = snapshot.passes.map(p => ({...p, fresh: !!p.checkedAt && now - Date.parse(p.checkedAt) <= 660000 && !p.error}));
   const fresh = passes.filter(p => p.fresh);
   const branchCount = new Set(fresh.flatMap(p => p.branches.filter(b => b.available > 0).map(b => b.name))).size;
-  const allFresh = fresh.length === passes.length;
+  const allFresh = passes.length > 0 && fresh.length === passes.length && !snapshot.discoveryError;
   $('#notice').className = allFresh ? '' : 'warning';
   $('#notice').textContent = allFresh ? `${branchCount ? `Passes available at ${branchCount} ${branchCount === 1 ? 'branch' : 'branches'}.` : 'No Rec Pass Express copies available.'} Checked directly with HPL.` : 'Availability is incomplete or out of date. Check the catalogue before travelling.';
-  const visible = passes.filter(p => filter !== 'available' || (p.fresh && p.branches.some(b => b.available > 0))).filter(p => !query || p.branches.some(b => b.name.toLowerCase().includes(query)));
+  const passMatches = p => `${p.name} ${p.shortName}`.toLowerCase().includes(query);
+  if (snapshot.discoveryError) $('#notice').textContent = snapshot.discoveryError;
+  const visible = passes.filter(p => filter !== 'available' || (p.fresh && p.branches.some(b => b.available > 0))).filter(p => !query || passMatches(p) || p.branches.some(b => b.name.toLowerCase().includes(query)));
   visible.sort((a,b) => Number(b.fresh && b.branches.some(x=>x.available>0)) - Number(a.fresh && a.branches.some(x=>x.available>0)));
   $('#passes').innerHTML = visible.map(p => {
-    const branches = p.branches.filter(b => b.available > 0 && b.name.toLowerCase().includes(query));
+    const branches = p.branches.filter(b => b.available > 0 && (passMatches(p) || b.name.toLowerCase().includes(query)));
     const total = p.branches.reduce((sum,b)=>sum+b.available,0);
     let label = !p.checkedAt ? 'Awaiting first check' : !p.fresh ? 'Needs a fresh check' : total ? `${total} available` : 'Unavailable';
     const css = p.fresh && total ? 'available' : !p.fresh ? 'warning' : '';
     const empty = !p.checkedAt ? 'No successful HPL check yet. Try checking again.' : !p.fresh ? 'Current availability is unknown. Previous results may have changed.' : 'No available Rec Pass Express copies found.';
     return `<section class="pass"><div class="pass-head"><div class="pass-meta"><span>${escapeHTML(p.shortName)} · Rec Pass Express</span><span class="state ${css}">${label}</span></div><h2>${escapeHTML(p.name)}</h2><p>${escapeHTML(p.description)}</p></div>${branches.length ? `<ul class="branch-list">${branches.map(b => `<li class="branch"><div><div class="branch-name">${escapeHTML(b.name)}</div><div class="branch-detail">${b.available} ${b.available===1?'copy':'copies'} ${p.fresh ? 'listed available' : 'at last successful check'}${b.shelving ? ` · ${b.shelving} shelving; confirm with branch` : ''}</div></div><a class="directions" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`Hamilton Public Library ${b.name} branch Ontario`)}" target="_blank" rel="noopener noreferrer">Directions ↗</a></li>`).join('')}</ul>` : `<p class="empty">${empty}</p>`}${branches.length && !p.fresh ? `<p class="empty">Previous results · Confirm in the catalogue.</p>` : ''}<div class="pass-foot">${p.checkedAt ? `<time datetime="${escapeHTML(p.checkedAt)}">Checked ${escapeHTML(formatTime(p.checkedAt))}</time>` : '<span>No successful check yet</span>'}<a href="${escapeHTML(p.catalogueUrl)}" target="_blank" rel="noopener noreferrer">HPL catalogue ↗</a></div></section>`;
-  }).join('') || `<div class="no-matches">${query ? 'No branches match your search.' : 'No passes have confirmed current availability.'}</div>`;
+  }).join('') || `<div class="no-matches">${query ? 'No passes or branches match your search.' : 'No passes have confirmed current availability.'}</div>`;
 }
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function readResponse(response) {
@@ -36,8 +38,11 @@ async function refresh() {
   $('#notice').textContent = 'Checking HPL directly. This can take a minute or two…';
   try {
     snapshot = await readResponse(await fetch('/api/check', {method:'POST', signal:AbortSignal.timeout(10000)}));
-    const deadline = Date.now() + 300000;
+    const deadline = Date.now() + 1800000;
     while (snapshot.checking) {
+      render();
+      $('#notice').className = '';
+      $('#notice').textContent = snapshot.total ? `Checking HPL: ${snapshot.completed} of ${snapshot.total} pass titles checked. Results appear as they finish.` : 'Finding recreation passes in the HPL catalogue…';
       if (Date.now() > deadline) throw new Error('Check timed out');
       await pause(1500);
       snapshot = await readResponse(await fetch('/api/status', {cache:'no-store',signal:AbortSignal.timeout(10000)}));
