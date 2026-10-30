@@ -35,6 +35,18 @@ class AvailabilityTests(unittest.TestCase):
         self.assertEqual(before['branches'],after['branches'])
         self.assertEqual(after['freshness'],'stale')
 
+    def test_discovery_adds_titles_and_excludes_non_express(self):
+        checker=Availability([])
+        checker._register([{'id':'one'},{'id':'two'},{'id':'three'}])
+        checker._publish('one',[],None)
+        checker._publish('two',[],None,eligible=False)
+        checker._publish('three',None,'Catalogue unavailable')
+        result=checker.status()
+        self.assertEqual(result['total'],3)
+        self.assertEqual(result['completed'],3)
+        self.assertEqual([p['id'] for p in result['passes']],['one','three'])
+        self.assertTrue(result['passes'][1]['error'])
+
     def test_pending_and_old_results(self):
         checker=Availability(PASSES)
         self.assertEqual(checker.status()['passes'][0]['freshness'],'pending')
