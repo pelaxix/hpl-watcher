@@ -8,10 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent
-PASSES = [
-    {'id': 'hca', 'name': 'Hamilton Conservation Authority', 'shortName': 'HCA', 'description': 'Conservation area pass', 'catalogueUrl': 'https://hpl.bibliocommons.com/v2/record/S125C722592'},
-    {'id': 'rom', 'name': 'Royal Ontario Museum', 'shortName': 'ROM', 'description': 'Museum pass', 'catalogueUrl': 'https://hpl.bibliocommons.com/v2/record/S125C878844'},
-]
+PASSES = []  # Discovered from HPL's pass catalogue at check time.
 
 CHECKER = Availability(PASSES)
 
