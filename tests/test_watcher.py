@@ -42,6 +42,14 @@ class WatcherParserTests(unittest.TestCase):
         self.assertEqual(len(result),2)
         self.assertEqual(result[0]['name'],'Ontario Parks Pass')
 
+    def test_all_copies_in_use_omits_available_section(self):
+        rows="Availability details\nGrand River Parks Pass\nPass\nNot available at this time (1)\nLocation\tCollection\tCall No.\tStatus\nAncaster\nRecreational Pass\n\tPASS GRA\tOn Hold"
+        self.assertEqual(self.scrape(rows),[])
+
+    def test_express_all_checked_out_is_valid_zero(self):
+        rows="Availability details\nRoyal Ontario Museum Pass\nNot available at this time (1)\nBarton\nRec Pass Express\n\tPASS ROM\tChecked Out"
+        self.assertEqual(self.scrape(rows),[])
+
     def test_confirmed_zero(self):
         self.assertEqual(self.scrape('Availability details\nAvailable (0)\nNot available at this time (8)'),[])
 
