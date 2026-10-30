@@ -23,6 +23,14 @@ class WatcherParserTests(unittest.TestCase):
         rows='Availability details\nAvailable (4)\nBarton\t\nRec Pass Express\n\tPASS ROM\tAvailable\nBarton\t\nRec Pass Express\n\tPASS ROM\tAvailable\nCentral\t\nRec Pass\n\tPASS ROM\tAvailable\nSaltfleet\t\nRec Pass Express\n\tPASS ROM\tAvailable\nNot available at this time (1)\nDundas\nRec Pass Express\nPASS ROM\tChecked out'
         self.assertEqual(self.scrape(rows),[{'name':'Barton','available':2},{'name':'Saltfleet','available':1}])
 
+    def test_saltfleet_shelving_from_actual_hpl_output(self):
+        rows = "Availability details\nHamilton Conservation Authority Pass\nPass\nAvailable (1)\nLocation\n\t\nCollection\n\t\nCall No.\n\t\nStatus\n\nSaltfleet\t\nRec Pass Express\n\tPASS HAM\tShelving\nNot available at this time (81)\nCentral\t\nRec Pass Express\n\tPASS HAM\tChecked Out"
+        self.assertEqual(self.scrape(rows), [{'name':'Saltfleet','available':1,'shelving':1}])
+
+    def test_mixed_statuses_at_one_branch(self):
+        rows = "Availability details\nAvailable (2)\nBarton\t\nRec Pass Express\n\tPASS ROM\tAvailable\nBarton\t\nRec Pass Express\n\tPASS ROM\tShelving"
+        self.assertEqual(self.scrape(rows), [{'name':'Barton','available':2,'shelving':1}])
+
     def test_confirmed_zero(self):
         self.assertEqual(self.scrape('Availability details\nAvailable (0)\nNot available at this time (8)'),[])
 
