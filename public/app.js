@@ -6,13 +6,15 @@ function render() {
   if (!snapshot) return;
   const query = $('#search').value.trim().toLowerCase();
   const now = Date.now();
-  const passes = snapshot.passes.map(p => ({...p, fresh: !!p.checkedAt && now - Date.parse(p.checkedAt) <= 660000 && !p.error}));
+  const unverifiedFailures = snapshot.passes.filter(p => !p.checkedAt && p.error).length;
+  const passes = snapshot.passes.filter(p => p.checkedAt).map(p => ({...p, fresh: !!p.checkedAt && now - Date.parse(p.checkedAt) <= 660000 && !p.error}));
   const fresh = passes.filter(p => p.fresh);
   const branchCount = new Set(fresh.flatMap(p => p.branches.filter(b => b.available > 0).map(b => b.name))).size;
-  const allFresh = passes.length > 0 && fresh.length === passes.length && !snapshot.discoveryError;
+  const allFresh = passes.length > 0 && fresh.length === passes.length && !snapshot.discoveryError && !unverifiedFailures;
   $('#notice').className = allFresh ? '' : 'warning';
   $('#notice').textContent = allFresh ? `${branchCount ? `Passes available at ${branchCount} ${branchCount === 1 ? 'branch' : 'branches'}.` : 'No Rec Pass Express copies available.'} Checked directly with HPL.` : 'Availability is incomplete or out of date. Check the catalogue before travelling.';
   const passMatches = p => `${p.name} ${p.shortName}`.toLowerCase().includes(query);
+  if (unverifiedFailures) $('#notice').textContent = `${unverifiedFailures} pass titles could not be verified for Express holdings. Try checking again.`;
   if (snapshot.discoveryError) $('#notice').textContent = snapshot.discoveryError;
   const visible = passes.filter(p => filter !== 'available' || (p.fresh && p.branches.some(b => b.available > 0))).filter(p => !query || passMatches(p) || p.branches.some(b => b.name.toLowerCase().includes(query)));
   visible.sort((a,b) => Number(b.fresh && b.branches.some(x=>x.available>0)) - Number(a.fresh && a.branches.some(x=>x.available>0)));
